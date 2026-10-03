@@ -1,0 +1,1049 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sales Performance Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one column. Header, one filter row, four KPI tiles, a full-width monthly trend,
+   then two-up breakdowns (product / region, heatmap / channel), then the transaction table. */
+:root {
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --wash: rgba(11, 11, 11, 0.05);
+  --s1: #2a78d6;   /* revenue */
+  --s2: #eb6834;   /* profit */
+  --s3: #1baf7a;   /* margin */
+  --s5: #e87ba4;   /* channel */
+  --s7: #4a3aa7;   /* channel */
+  --good: #006300;
+  --bad: #d03b3b;
+  --focus: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10); --wash: rgba(255, 255, 255, 0.07);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s5: #d55181; --s7: #9085e9;
+    --good: #0ca30c; --bad: #d03b3b; --focus: #3987e5;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10); --wash: rgba(255, 255, 255, 0.07);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s5: #d55181; --s7: #9085e9;
+  --good: #0ca30c; --bad: #d03b3b; --focus: #3987e5;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  padding-inline: clamp(16px, 3vw, 32px);
+  padding-block: 24px 40px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, p { margin: 0; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 4px; }
+h1 { font-size: clamp(22px, 3vw, 28px); font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.top-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.src { color: var(--ink-2); font-size: 12.5px; }
+.btn {
+  display: inline-flex; align-items: center; padding: 7px 12px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: var(--ink); font: inherit; font-weight: 500; cursor: pointer;
+}
+.btn:hover { background: var(--wash); }
+.btn:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Filters */
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.fgroup { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.flabel { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+select {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 7px 10px; min-width: 130px; cursor: pointer;
+}
+select:hover { background: var(--wash); }
+.seg {
+  display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); max-width: 100%; overflow-x: auto;
+}
+.seg button {
+  border: 0; background: transparent; color: var(--ink-2); padding: 6px 12px; border-radius: 4px;
+  font: inherit; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.seg button:hover { background: var(--wash); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+button:focus-visible, select:focus-visible, summary:focus-visible, .cell:focus-visible, .chrow:focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
+.link { border: 0; background: none; color: var(--ink); font: inherit; font-weight: 500; text-decoration: underline; cursor: pointer; padding: 7px 4px; }
+.status { margin-left: auto; color: var(--ink-2); font-size: 12.5px; padding-bottom: 8px; }
+.status.error { color: var(--bad); }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px 18px; min-width: 0; transition: opacity 0.2s; }
+.card-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; margin-bottom: 10px; }
+h2 { font-size: 15px; font-weight: 600; }
+.sub { color: var(--ink-2); font-size: 12.5px; margin-top: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.key-line { width: 16px; height: 3px; border-radius: 2px; background: var(--c); }
+.legend button.lg {
+  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; padding: 3px 9px; cursor: pointer;
+}
+.legend button.lg:hover { background: var(--wash); }
+.legend button.lg[aria-pressed="false"] { opacity: 0.5; text-decoration: line-through; }
+.key-line.dash { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 8px); }
+.key-box { width: 10px; height: 10px; border-radius: 2px; background: var(--c); }
+.chart { position: relative; height: 240px; }
+.chart.tall { height: clamp(260px, 38vw, 340px); }
+.chart canvas { display: block; }
+
+/* KPI tiles */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; min-width: 0; }
+.tile .k { font-size: 12.5px; color: var(--ink-2); }
+.tile .v { font-size: clamp(24px, 3vw, 34px); font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; overflow-wrap: anywhere; }
+.tile .s { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; min-height: 18px; }
+.delta { font-weight: 600; }
+.delta.up { color: var(--good); }
+.delta.down { color: var(--bad); }
+.delta.flat { color: var(--ink-2); }
+.cmp { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--grid); font-size: 12.5px; color: var(--ink-2); }
+.cmp[hidden], .foot[hidden] { display: none; }
+.cmprow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.cmprow .none { color: var(--muted); }
+
+.row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+/* Heatmap */
+.heat { display: grid; gap: 2px; align-items: stretch; }
+.hh { font-size: 12px; color: var(--ink-2); padding: 4px 6px; display: flex; align-items: center; min-width: 0; }
+.hh.col { justify-content: center; text-align: center; }
+.cell {
+  border: 0; border-radius: 3px; min-height: 52px; padding: 4px; font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s, filter 0.15s;
+}
+.cell:hover { filter: brightness(1.12) saturate(1.05); }
+.cell.dim { opacity: 0.35; }
+.cell.empty { background: var(--wash); color: var(--muted); cursor: default; }
+.scale { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--ink-2); }
+.scale .bar { flex: 1; height: 8px; border-radius: 2px; max-width: 220px; }
+
+/* Channel */
+.donut { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
+.donut-wrap { position: relative; width: 190px; height: 190px; flex: none; }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; text-align: center; }
+.donut-center .big { font-size: 22px; font-weight: 600; }
+.donut-center .small { font-size: 12px; color: var(--ink-2); }
+.chlist { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+.chhead, .chrow { display: grid; grid-template-columns: 14px minmax(0, 1fr) 64px 64px; gap: 8px; align-items: center; }
+.chhead { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); padding: 0 8px; }
+.chhead span:nth-child(n+3), .chrow span:nth-child(n+3) { text-align: right; }
+.chrow { border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; padding: 8px; border-radius: 4px; cursor: pointer; }
+.chrow:hover { background: var(--wash); }
+.chrow.dim { opacity: 0.45; }
+.chrow .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.chrow .nm { font-weight: 500; }
+.chrow .num { font-variant-numeric: tabular-nums; }
+
+/* Table */
+details.card summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+.tablewrap { overflow: auto; max-height: 380px; margin-top: 12px; border-top: 1px solid var(--border); }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+th { position: sticky; top: 0; background: var(--surface); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); font-weight: 500; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+
+.tip {
+  position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--axis); border-radius: 4px; padding: 8px 10px; font-size: 12.5px; max-width: 240px;
+}
+.tip .t { color: var(--ink-2); margin-bottom: 2px; }
+.tip .l { font-weight: 600; }
+.foot { color: var(--ink-2); font-size: 12px; }
+
+@media (max-width: 860px) {
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .status { margin-left: 0; width: 100%; padding-bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .cell { transition: none; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow" id="period">Sales performance</p>
+      <h1>Sales performance dashboard</h1>
+    </div>
+    <div class="top-actions">
+      <span class="src" id="srcName">sales-data.csv</span>
+      <label class="btn">Load another CSV<input id="csvFile" type="file" accept=".csv,text/csv" hidden></label>
+    </div>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <div class="fgroup">
+      <span class="flabel" id="lblRange">Date range</span>
+      <div class="seg" id="rangeSeg" role="group" aria-labelledby="lblRange"></div>
+    </div>
+    <div class="fgroup"><label class="flabel" for="selRegion">Region</label><select id="selRegion"></select></div>
+    <div class="fgroup"><label class="flabel" for="selProduct">Product</label><select id="selProduct"></select></div>
+    <div class="fgroup"><label class="flabel" for="selChannel">Sales channel</label><select id="selChannel"></select></div>
+    <button class="link" id="reset" type="button" hidden>Reset filters</button>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="kpis" aria-label="Key metrics">
+    <div class="tile"><div class="k">Revenue</div><div class="v" id="kRev">—</div><div class="s" id="kRevS"></div><div class="cmp" id="kRevC"></div></div>
+    <div class="tile"><div class="k">Profit</div><div class="v" id="kProfit">—</div><div class="s" id="kProfitS"></div><div class="cmp" id="kProfitC"></div></div>
+    <div class="tile"><div class="k">Profit margin</div><div class="v" id="kMargin">—</div><div class="s" id="kMarginS"></div><div class="cmp" id="kMarginC"></div></div>
+    <div class="tile"><div class="k">Units sold</div><div class="v" id="kUnits">—</div><div class="s" id="kUnitsS"></div><div class="cmp" id="kUnitsC"></div></div>
+  </section>
+  <p class="foot" id="kpiNote" hidden></p>
+
+  <section class="card" id="trendCard">
+    <div class="card-head">
+      <div>
+        <h2 id="trendTitle">Monthly revenue, profit and margin</h2>
+        <p class="sub" id="trendSub">Revenue and profit use the left axis, margin uses the right. Click a legend item to hide or show it.</p>
+      </div>
+    </div>
+    <div class="legend" id="trendLegend"></div>
+    <div class="chart tall"><canvas id="cTrend" role="img" aria-label="Monthly trend chart"></canvas></div>
+  </section>
+
+  <div class="row">
+    <section class="card">
+      <div class="card-head"><div><h2>Revenue and profit by product</h2><p class="sub">Click a bar to filter the dashboard to that product.</p></div></div>
+      <div class="legend">
+        <span><i class="key-box" style="--c:var(--s1)"></i>Revenue</span>
+        <span><i class="key-box" style="--c:var(--s2)"></i>Profit</span>
+      </div>
+      <div class="chart"><canvas id="cProduct" role="img" aria-label="Revenue and profit by product"></canvas></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><div><h2>Profit margin by region</h2><p class="sub">Profit divided by revenue. The vertical line is the overall margin.</p></div></div>
+      <div class="chart"><canvas id="cRegion" role="img" aria-label="Profit margin by region"></canvas></div>
+    </section>
+  </div>
+
+  <div class="row">
+    <section class="card">
+      <div class="card-head"><div><h2>Revenue by region and product</h2><p class="sub">Darker cells earn more. Click a cell to filter to it.</p></div></div>
+      <div class="heat" id="heat"></div>
+      <div class="scale" id="heatScale"></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><div><h2>Online vs. offline</h2><p class="sub">Share of revenue and margin by sales channel. Click a row to filter.</p></div></div>
+      <div class="donut">
+        <div class="donut-wrap">
+          <canvas id="cChannel" role="img" aria-label="Revenue share by sales channel"></canvas>
+          <div class="donut-center"><span class="big" id="dBig">—</span><span class="small">revenue</span></div>
+        </div>
+        <div class="chlist" id="chlist"></div>
+      </div>
+    </section>
+  </div>
+
+  <details class="card" id="tableCard">
+    <summary id="tableSum">Table view</summary>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Region</th><th>Product</th><th>Channel</th>
+            <th class="n">Units</th><th class="n">Unit price</th><th class="n">Revenue</th><th class="n">Cost</th><th class="n">Profit</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <p class="foot" id="foot">Source: sales-data.csv. Dates are read day first. Amounts show a $ sign; the file does not name a currency.</p>
+</div>
+
+<div class="tip" id="tip" role="tooltip" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+'use strict';
+
+// The CSV below is the uploaded sales-data.csv. It is parsed in the browser by parseCSV().
+const SAMPLE_NAME = 'sales-data.csv';
+const SAMPLE = `Date;Region;Product;Sales Channel;Units Sold;Unit Price;Total Revenue;Total Cost;Profit
+15/1/2025;North;Electronics;Online;131;322.17;42204.27;29102.33;13101.94
+22/1/2025;South;Clothing;Offline;89;64.47;5737.83;4369.01;1368.82
+5/2/2025;East;Home Goods;Online;88;144.67;12730.96;9426.93;3304.03
+18/2/2025;West;Electronics;Offline;113;296.67;33523.71;26161.53;7362.18
+3/3/2025;North;Clothing;Online;172;46.69;8030.68;5769.02;2261.66
+20/3/2025;South;Home Goods;Offline;73;132.65;9683.45;6246.49;3436.96
+2/4/2025;East;Electronics;Online;143;330.15;47211.45;32877.61;14333.84
+15/4/2025;West;Clothing;Offline;104;65.43;6804.72;4367.07;2437.65
+1/5/2025;North;Home Goods;Online;86;157.69;13561.34;9272.52;4288.82
+18/5/2025;South;Electronics;Offline;105;307.41;32278.05;20980.18;11297.87
+4/6/2025;East;Clothing;Online;135;58.39;7882.65;5510.52;2372.13
+21/6/2025;West;Home Goods;Offline;69;141.28;9748.32;6825.94;2922.38
+5/7/2025;North;Electronics;Online;114;287.46;32770.44;21471.85;11298.59
+14/7/2025;South;Clothing;Offline;97;63.28;6138.16;4522.81;1615.35
+20/7/2025;East;Home Goods;Online;76;168.51;12806.76;7744.24;5062.52
+28/7/2025;West;Electronics;Offline;138;312.65;43145.7;27372.92;15772.78
+3/8/2025;North;Clothing;Online;108;51.74;5587.92;3363.15;2224.77
+10/8/2025;South;Home Goods;Offline;67;147.3;9869.1;6985.27;2883.83
+17/8/2025;East;Electronics;Online;121;301.52;36483.92;23435.71;13048.21
+23/8/2025;West;Clothing;Offline;94;66.42;6243.48;4090.99;2152.49
+29/8/2025;North;Home Goods;Online;84;160.88;13513.92;8712.92;4801.0
+4/9/2025;South;Electronics;Offline;109;295.75;32236.75;20938.64;11298.11
+`;
+
+/*LOGIC_START*/
+const NEED = ['Date', 'Region', 'Product', 'Sales Channel', 'Units Sold', 'Unit Price', 'Total Revenue', 'Total Cost', 'Profit'];
+
+function parseDate(s) {
+  s = (s || '').trim();
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/), y, mo, d;
+  if (m) { d = +m[1]; mo = +m[2]; y = +m[3]; }
+  else {
+    m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!m) return null;
+    y = +m[1]; mo = +m[2]; d = +m[3];
+  }
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return { y: y, mo: mo, d: d, ym: y * 12 + (mo - 1), date: new Date(y, mo - 1, d) };
+}
+
+function parseCSV(text) {
+  const lines = String(text).replace(/^﻿/, '').split(/\r?\n/).filter(function (l) { return l.trim() !== ''; });
+  if (lines.length < 2) throw new Error('The file needs a header row and at least one data row.');
+  const delim = lines[0].split(';').length >= lines[0].split(',').length ? ';' : ',';
+  const head = lines[0].split(delim).map(function (h) { return h.trim(); });
+  const idx = {};
+  NEED.forEach(function (n) {
+    const i = head.indexOf(n);
+    if (i < 0) throw new Error('Missing column: ' + n);
+    idx[n] = i;
+  });
+  const rows = [];
+  lines.slice(1).forEach(function (line) {
+    const c = line.split(delim);
+    const dt = parseDate(c[idx['Date']]);
+    const revenue = parseFloat(c[idx['Total Revenue']]);
+    if (!dt || !isFinite(revenue)) return;
+    rows.push({
+      y: dt.y, mo: dt.mo, d: dt.d, ym: dt.ym, date: dt.date,
+      region: (c[idx['Region']] || '').trim(),
+      product: (c[idx['Product']] || '').trim(),
+      channel: (c[idx['Sales Channel']] || '').trim(),
+      units: parseFloat(c[idx['Units Sold']]) || 0,
+      price: parseFloat(c[idx['Unit Price']]) || 0,
+      revenue: revenue,
+      cost: parseFloat(c[idx['Total Cost']]) || 0,
+      profit: parseFloat(c[idx['Profit']]) || 0
+    });
+  });
+  if (!rows.length) throw new Error('No valid rows found. Check the date and number formats.');
+  rows.sort(function (a, b) { return a.date - b.date; });
+  return rows;
+}
+
+function sumRows(rows) {
+  const t = { rev: 0, cost: 0, profit: 0, units: 0, n: rows.length };
+  rows.forEach(function (r) { t.rev += r.revenue; t.cost += r.cost; t.profit += r.profit; t.units += r.units; });
+  t.margin = t.rev > 0 ? t.profit / t.rev : null;
+  return t;
+}
+
+function groupSum(rows, key) {
+  const m = new Map(), out = new Map();
+  rows.forEach(function (r) { if (!m.has(r[key])) m.set(r[key], []); m.get(r[key]).push(r); });
+  m.forEach(function (v, k) { out.set(k, sumRows(v)); });
+  return out;
+}
+
+function quarterOf(r) { return r.y + '-Q' + (Math.floor((r.mo - 1) / 3) + 1); }
+
+function rangeBounds(range, rows) {
+  if (range === 'all') {
+    let lo = Infinity, hi = -Infinity;
+    rows.forEach(function (r) { lo = Math.min(lo, r.ym); hi = Math.max(hi, r.ym); });
+    return { lo: lo, hi: hi };
+  }
+  const p = range.split('-Q').map(Number);
+  const lo = p[0] * 12 + (p[1] - 1) * 3;
+  return { lo: lo, hi: lo + 2 };
+}
+
+function filterRows(rows, f, skip) {
+  skip = skip || [];
+  const b = rangeBounds(f.range, rows);
+  return rows.filter(function (r) {
+    return r.ym >= b.lo && r.ym <= b.hi &&
+      (skip.indexOf('region') >= 0 || f.region === 'All' || r.region === f.region) &&
+      (skip.indexOf('product') >= 0 || f.product === 'All' || r.product === f.product) &&
+      (skip.indexOf('channel') >= 0 || f.channel === 'All' || r.channel === f.channel);
+  });
+}
+
+function monthly(rows, b) {
+  const out = [];
+  for (let ym = b.lo; ym <= b.hi; ym++) {
+    const sub = rows.filter(function (r) { return r.ym === ym; });
+    out.push({ ym: ym, y: Math.floor(ym / 12), mo: ym % 12, sum: sub.length ? sumRows(sub) : null });
+  }
+  return out;
+}
+function quarterKeys(rows) { return Array.from(new Set(rows.map(quarterOf))).sort(); }
+function prevQuarterKey(k) {
+  const p = k.split('-Q').map(Number);
+  return p[1] === 1 ? (p[0] - 1) + '-Q4' : p[0] + '-Q' + (p[1] - 1);
+}
+function quarterLabel(k) { const p = k.split('-Q'); return 'Q' + p[1] + ' ' + p[0]; }
+
+// Sums for the selected quarter (or the latest quarter when "All time" is chosen), the quarter before it,
+// and all time. Region, product and channel filters apply to all three so the comparison stays like for like.
+function kpiCompare(rows, f) {
+  const keys = quarterKeys(rows);
+  const cur = f.range === 'all' ? keys[keys.length - 1] : f.range;
+  const prev = prevQuarterKey(cur);
+  const withRange = function (r) { return filterRows(rows, { range: r, region: f.region, product: f.product, channel: f.channel }); };
+  return {
+    cur: cur, prev: prev, nq: keys.length,
+    curSum: sumRows(withRange(cur)),
+    prevSum: keys.indexOf(prev) >= 0 ? sumRows(withRange(prev)) : null,
+    allSum: sumRows(withRange('all'))
+  };
+}
+
+// The latest quarter is partial when the data stops more than a week before the quarter ends.
+function partialLatestQuarter(rows) {
+  const keys = quarterKeys(rows), k = keys[keys.length - 1], p = k.split('-Q').map(Number);
+  const end = new Date(p[0], p[1] * 3, 0);
+  let last = null;
+  rows.forEach(function (r) { if (quarterOf(r) === k && (!last || r.date > last)) last = r.date; });
+  return last && end - last > 7 * 864e5 ? { key: k, last: last } : null;
+}
+
+function pctChange(cur, prev) { return prev > 0 ? (cur - prev) / prev * 100 : null; }
+/*LOGIC_END*/
+
+// ---------- formatting ----------
+function fmtMoney(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
+function fmtCompact(v) {
+  const a = Math.abs(v);
+  if (a >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (a >= 1e5) return Math.round(v / 1e3) + 'K';
+  if (a >= 1e3) return (v / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(Math.round(v));
+}
+function fmtMoneyC(v) { return '$' + fmtCompact(v); }
+function fmtPct(v) { return v == null ? '—' : (v * 100).toFixed(1) + '%'; }
+function fmtNum(v) { return Math.round(v).toLocaleString('en-US'); }
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// ---------- state ----------
+let DATA = [], DIMS = {}, srcName = SAMPLE_NAME;
+const f = { range: 'all', region: 'All', product: 'All', channel: 'All' };
+const seriesOn = { rev: true, profit: true, margin: true };
+let charts = {};
+let lastTheme = null;
+// Reuse an existing chart (swap its data and options, no animation) so a filter click never leaves a blank canvas.
+function mount(existing, el, cfg) {
+  if (existing) { existing.data = cfg.data; existing.options = cfg.options; existing.update('none'); return existing; }
+  return new Chart(el, cfg);
+}
+function themeKey() { return isDark() ? 'dark' : 'light'; }
+function onThemeChange() { if (DATA.length && themeKey() !== lastTheme) render(); }
+const $ = function (id) { return document.getElementById(id); };
+const css = function (n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); };
+
+function hexA(hex, a) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h.split('').map(function (x) { return x + x; }).join('');
+  const n = parseInt(h, 16);
+  return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+function isDark() {
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t === 'dark') return true;
+  if (t === 'light') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function rgbOf(hex) { const n = parseInt(hex.replace('#', ''), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function lum(rgb) {
+  const c = rgb.map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+
+// Sequential blue ramp, steps 100 to 700. On dark surfaces low values sit near the surface, so the order flips.
+const RAMP = ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'];
+function rampList() { return isDark() ? RAMP.slice(3).reverse() : RAMP.slice(); }
+function rampAt(t) {
+  const list = rampList(), p = Math.max(0, Math.min(1, t)) * (list.length - 1), i = Math.floor(p), k = p - i;
+  const a = rgbOf(list[i]), b = rgbOf(list[Math.min(i + 1, list.length - 1)]);
+  return a.map(function (v, j) { return Math.round(v + (b[j] - v) * k); });
+}
+
+// ---------- chart plugins ----------
+let FONT = 'sans-serif';
+const crosshair = {
+  id: 'crosshair',
+  afterDatasetsDraw: function (chart) {
+    const act = chart.tooltip && chart.tooltip.getActiveElements();
+    if (!act || !act.length) return;
+    const x = act[0].element.x, a = chart.chartArea, c = chart.ctx;
+    c.save(); c.beginPath(); c.moveTo(x, a.top); c.lineTo(x, a.bottom);
+    c.lineWidth = 1; c.strokeStyle = css('--axis'); c.stroke(); c.restore();
+  }
+};
+const peakLabel = {
+  id: 'peakLabel',
+  afterDatasetsDraw: function (chart, args, o) {
+    if (!o || !o.fmt) return;
+    const ds = chart.data.datasets[0];
+    let bi = -1, bv = -Infinity;
+    ds.data.forEach(function (v, i) { if (v != null && v > bv) { bv = v; bi = i; } });
+    if (bi < 0) return;
+    const el = chart.getDatasetMeta(0).data[bi], a = chart.chartArea, c = chart.ctx;
+    const text = 'Peak ' + o.fmt(bv);
+    c.save(); c.font = '500 12px ' + FONT; c.fillStyle = css('--ink-2'); c.textBaseline = 'bottom'; c.textAlign = 'center';
+    const w = c.measureText(text).width;
+    const x = Math.max(a.left + w / 2, Math.min(a.right - w / 2, el.x));
+    c.fillText(text, x, Math.max(a.top + 12, el.y - 12));
+    c.restore();
+  }
+};
+const barLabels = {
+  id: 'barLabels',
+  afterDatasetsDraw: function (chart, args, o) {
+    if (!o || !o.fmt) return;
+    const c = chart.ctx;
+    c.save(); c.font = '600 12px ' + FONT; c.fillStyle = css('--ink'); c.textBaseline = 'middle'; c.textAlign = 'left';
+    chart.data.datasets.forEach(function (ds, di) {
+      chart.getDatasetMeta(di).data.forEach(function (bar, i) {
+        const v = ds.data[i];
+        if (v == null) return;
+        const t = o.fmt(v);
+        c.lineWidth = 4; c.lineJoin = 'round'; c.strokeStyle = css('--surface'); c.strokeText(t, bar.x + 6, bar.y);
+        c.fillText(t, bar.x + 6, bar.y);
+      });
+    });
+    c.restore();
+  }
+};
+const refLine = {
+  id: 'refLine',
+  afterDatasetsDraw: function (chart, args, o) {
+    if (!o || o.value == null) return;
+    const x = chart.scales.x.getPixelForValue(o.value), a = chart.chartArea, c = chart.ctx;
+    c.save(); c.strokeStyle = css('--ink-2'); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x, a.top - 4); c.lineTo(x, a.bottom); c.stroke();
+    c.fillStyle = css('--ink-2'); c.font = '500 11.5px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'bottom';
+    c.fillText(o.label, x, a.top - 6); c.restore();
+  }
+};
+
+function tooltipBase() {
+  return {
+    backgroundColor: css('--surface'), titleColor: css('--ink-2'), bodyColor: css('--ink'), footerColor: css('--ink-2'),
+    borderColor: css('--axis'), borderWidth: 1, padding: 10, cornerRadius: 4, boxWidth: 14, boxHeight: 3, boxPadding: 4,
+    titleFont: { weight: '500', size: 12 }, bodyFont: { weight: '600', size: 13 }, footerFont: { weight: '400', size: 12 }
+  };
+}
+function setCursor(evt, els) { if (evt.native && evt.native.target) evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
+function toggle(key, val) { f[key] = f[key] === val ? 'All' : val; syncControls(); render(); }
+
+// ---------- controls ----------
+function fillSelect(sel, key, values) {
+  sel.textContent = '';
+  ['All'].concat(values).forEach(function (v) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v === 'All' ? 'All' : v;
+    sel.appendChild(o);
+  });
+  sel.value = f[key];
+}
+function buildControls() {
+  const quarters = Array.from(new Set(DATA.map(quarterOf))).sort();
+  const seg = $('rangeSeg'); seg.textContent = '';
+  [['all', 'All time']].concat(quarters.map(function (q) { const p = q.split('-Q'); return [q, 'Q' + p[1] + ' ' + p[0]]; })).forEach(function (p) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.range = p[0]; b.textContent = p[1];
+    b.addEventListener('click', function () { f.range = p[0]; syncControls(); render(); });
+    seg.appendChild(b);
+  });
+  fillSelect($('selRegion'), 'region', DIMS.region);
+  fillSelect($('selProduct'), 'product', DIMS.product);
+  fillSelect($('selChannel'), 'channel', DIMS.channel);
+}
+function syncControls() {
+  Array.prototype.forEach.call($('rangeSeg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.range === f.range)); });
+  $('selRegion').value = f.region; $('selProduct').value = f.product; $('selChannel').value = f.channel;
+  $('reset').hidden = f.range === 'all' && f.region === 'All' && f.product === 'All' && f.channel === 'All';
+}
+
+function loadData(rows, name) {
+  DATA = rows; srcName = name;
+  DIMS = {
+    region: Array.from(new Set(rows.map(function (r) { return r.region; }))).sort(),
+    product: Array.from(new Set(rows.map(function (r) { return r.product; }))).sort(),
+    channel: Array.from(new Set(rows.map(function (r) { return r.channel; }))).sort()
+  };
+  f.range = 'all'; f.region = 'All'; f.product = 'All'; f.channel = 'All';
+  buildControls(); syncControls();
+  const b = rangeBounds('all', rows);
+  $('period').textContent = MONTHS[b.lo % 12] + ' ' + Math.floor(b.lo / 12) + ' to ' + MONTHS[b.hi % 12] + ' ' + Math.floor(b.hi / 12) + ' · ' + rows.length + ' transactions';
+  $('srcName').textContent = name;
+  $('foot').textContent = 'Source: ' + name + '. Dates are read day first. Amounts show a $ sign; the file does not name a currency.';
+  render();
+}
+
+// ---------- render ----------
+function destroyCharts() { Object.keys(charts).forEach(function (k) { charts[k].destroy(); }); charts = {}; }
+
+function render() {
+  if (typeof Chart === 'undefined') { $('status').textContent = 'The chart library did not load. Check your connection and reload.'; $('status').className = 'status error'; return; }
+  FONT = css('--font');
+  Chart.defaults.font.family = FONT;
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = css('--ink-2');
+  // Change only the duration. Replacing the whole animation object removes Chart.js defaults and throws on hover.
+  Chart.defaults.animation.duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 300;
+  if (themeKey() !== lastTheme) { destroyCharts(); lastTheme = themeKey(); }
+
+  const rows = filterRows(DATA, f);
+  const tot = sumRows(rows), base = sumRows(DATA);
+
+  const st = $('status');
+  st.className = 'status';
+  st.textContent = rows.length + ' of ' + DATA.length + ' transactions match' + (rows.length ? '' : '. Try widening the filters.');
+
+  // Each section draws on its own, so one failure cannot blank the others.
+  [
+    ['KPI tiles', function () { renderKpis(tot); }],
+    ['Trend chart', function () { renderTrend(rows); }],
+    ['Product chart', function () { renderProduct(filterRows(DATA, f, ['product'])); }],
+    ['Region chart', function () { renderRegion(filterRows(DATA, f, ['region'])); }],
+    ['Heatmap', function () { renderHeat(filterRows(DATA, f, ['region', 'product'])); }],
+    ['Channel chart', function () { renderChannel(filterRows(DATA, f, ['channel'])); }],
+    ['Table', function () { renderTable(rows); }]
+  ].forEach(function (s) {
+    try { s[1](); } catch (err) {
+      console.error(s[0], err);
+      st.className = 'status error';
+      st.textContent = s[0] + ' could not be drawn: ' + err.message;
+    }
+  });
+}
+
+function fmtDelta(d, unit) {
+  const a = Math.abs(d), flat = a < 0.05;
+  const sign = flat ? '' : d > 0 ? '+' : '−';
+  return {
+    txt: (flat ? '▬ ' : d > 0 ? '▲ ' : '▼ ') + sign + a.toFixed(1) + (unit === 'pts' ? ' pts' : '%'),
+    cls: flat ? 'flat' : d > 0 ? 'up' : 'down'
+  };
+}
+function cmpRow(host, d, unit, label, missing) {
+  const row = document.createElement('div'); row.className = 'cmprow';
+  if (d == null) {
+    const s = document.createElement('span'); s.className = 'none'; s.textContent = missing; row.appendChild(s);
+  } else {
+    const x = fmtDelta(d, unit), s = document.createElement('span'), t = document.createElement('span');
+    s.className = 'delta ' + x.cls; s.textContent = x.txt; t.textContent = label;
+    row.appendChild(s); row.appendChild(t);
+  }
+  host.appendChild(row);
+}
+
+function renderKpis(tot) {
+  $('kRev').textContent = fmtMoney(tot.rev);
+  $('kRevS').textContent = tot.n + (tot.n === 1 ? ' transaction' : ' transactions');
+  $('kProfit').textContent = fmtMoney(tot.profit);
+  $('kProfitS').textContent = 'Cost ' + fmtMoney(tot.cost);
+  $('kMargin').textContent = fmtPct(tot.margin);
+  $('kMarginS').textContent = 'Profit ÷ revenue';
+  $('kUnits').textContent = fmtNum(tot.units);
+  $('kUnitsS').textContent = tot.units > 0 ? 'Average ' + fmtMoney(tot.rev / tot.units) + ' per unit' : '';
+
+  const c = kpiCompare(DATA, f), isAll = f.range === 'all';
+  const qoqOk = c.prevSum && c.prevSum.n > 0 && c.curSum.n > 0;
+  const qoqLabel = ' QoQ, vs. ' + quarterLabel(c.prev);
+  const qoqMissing = !c.prevSum ? 'QoQ: no earlier quarter in the file'
+    : c.curSum.n === 0 ? 'QoQ: no sales in ' + quarterLabel(c.cur)
+    : 'QoQ: no sales in ' + quarterLabel(c.prev) + ' to compare';
+  const haveCur = tot.n > 0;
+  const avgQ = function (k) { return c.allSum[k] / c.nq; };
+
+  const defs = [
+    { host: 'kRevC', unit: '%', qoq: qoqOk ? pctChange(c.curSum.rev, c.prevSum.rev) : null, all: haveCur ? pctChange(tot.rev, avgQ('rev')) : null, allLabel: ' vs. avg quarter' },
+    { host: 'kProfitC', unit: '%', qoq: qoqOk ? pctChange(c.curSum.profit, c.prevSum.profit) : null, all: haveCur ? pctChange(tot.profit, avgQ('profit')) : null, allLabel: ' vs. avg quarter' },
+    { host: 'kMarginC', unit: 'pts', qoq: qoqOk && c.curSum.margin != null && c.prevSum.margin != null ? (c.curSum.margin - c.prevSum.margin) * 100 : null,
+      all: haveCur && tot.margin != null && c.allSum.margin != null ? (tot.margin - c.allSum.margin) * 100 : null, allLabel: ' vs. all time (' + fmtPct(c.allSum.margin) + ')' },
+    { host: 'kUnitsC', unit: '%', qoq: qoqOk ? pctChange(c.curSum.units, c.prevSum.units) : null, all: haveCur ? pctChange(tot.units, avgQ('units')) : null, allLabel: ' vs. avg quarter' }
+  ];
+  defs.forEach(function (d) {
+    // "All time" is the whole file, so there is nothing to compare it with: hide the rows.
+    const host = $(d.host); host.textContent = ''; host.hidden = isAll;
+    if (isAll) return;
+    cmpRow(host, d.qoq, d.unit, qoqLabel, qoqMissing);
+    cmpRow(host, d.all, d.unit, d.allLabel, haveCur ? 'All time: nothing to compare' : 'All time: no sales to compare');
+  });
+
+  const part = partialLatestQuarter(DATA), note = $('kpiNote');
+  if (part && !isAll) {
+    const dt = part.last;
+    note.textContent = quarterLabel(part.key) + ' has data through ' + dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ' ' + dt.getFullYear() +
+      ', so comparisons that include it cover a shorter period. The average quarter counts it as a full quarter.';
+    note.hidden = false;
+  } else { note.hidden = true; }
+}
+
+function niceStep(maxVal) {
+  const raw = Math.max(maxVal, 1e-9) / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), cand = [1, 2, 2.5, 5, 10];
+  for (let i = 0; i < cand.length; i++) if (cand[i] * mag >= raw) return cand[i] * mag;
+  return 10 * mag;
+}
+
+const TREND_SERIES = [
+  { id: 'rev', label: 'Revenue', cssVar: '--s1', axis: 'y', fill: true, dash: null, get: function (m) { return m.sum ? m.sum.rev : null; } },
+  { id: 'profit', label: 'Profit', cssVar: '--s2', axis: 'y', fill: false, dash: null, get: function (m) { return m.sum ? m.sum.profit : null; } },
+  { id: 'margin', label: 'Profit margin (right axis)', cssVar: '--s3', axis: 'y2', fill: false, dash: [6, 4], get: function (m) { return m.sum ? m.sum.margin : null; } }
+];
+
+function renderTrend(rows) {
+  const b = rangeBounds(f.range, DATA), ms = monthly(rows, b);
+  const years = new Set(DATA.map(function (r) { return r.y; }));
+  const labels = ms.map(function (m) { return MONTHS[m.mo] + (years.size > 1 ? ' ’' + String(m.y).slice(2) : ''); });
+  const surf = css('--surface');
+  const on = TREND_SERIES.filter(function (d) { return seriesOn[d.id]; });
+
+  // Legend items double as show/hide switches. Built once; colors come from CSS variables so themes just work.
+  const lg = $('trendLegend');
+  if (!lg.children.length) {
+    TREND_SERIES.forEach(function (d) {
+      const btn = document.createElement('button'), k = document.createElement('i');
+      btn.type = 'button'; btn.className = 'lg'; btn.dataset.id = d.id;
+      k.className = 'key-line' + (d.dash ? ' dash' : ''); k.style.setProperty('--c', 'var(' + d.cssVar + ')');
+      btn.appendChild(k); btn.appendChild(document.createTextNode(d.label));
+      btn.addEventListener('click', function () {
+        if (seriesOn[d.id] && TREND_SERIES.filter(function (x) { return seriesOn[x.id]; }).length === 1) return;
+        seriesOn[d.id] = !seriesOn[d.id]; render();
+        const again = lg.querySelector('[data-id="' + d.id + '"]'); if (again) again.focus();
+      });
+      lg.appendChild(btn);
+    });
+  }
+  Array.prototype.forEach.call(lg.children, function (btn) { btn.setAttribute('aria-pressed', String(!!seriesOn[btn.dataset.id])); });
+
+  const datasets = on.map(function (d) {
+    const c = css(d.cssVar);
+    return {
+      id: d.id, label: d.id === 'margin' ? 'Profit margin' : d.label, data: ms.map(d.get), yAxisID: d.axis,
+      borderColor: c, backgroundColor: hexA(c, 0.10), fill: d.fill, borderWidth: 2, borderDash: d.dash || [], tension: 0,
+      pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: c, pointBorderColor: surf, pointBorderWidth: 2, spanGaps: false
+    };
+  });
+
+  // Both axes get five equal steps, so the right-hand % ticks sit on the same gridlines as the left-hand $ ticks.
+  function maxOn(axis) {
+    let m = 0;
+    on.forEach(function (d) { if (d.axis === axis) ms.forEach(function (x) { const v = d.get(x); if (v != null && v > m) m = v; }); });
+    return m;
+  }
+  const leftOn = on.some(function (d) { return d.axis === 'y'; }), rightOn = on.some(function (d) { return d.axis === 'y2'; });
+  const stepL = niceStep(Math.max(maxOn('y') * 1.08, 1)), stepR = niceStep(Math.max(maxOn('y2') * 1.12, 0.1));
+  const axisTitle = function (t) { return { display: true, text: t, color: css('--ink-2'), font: { size: 11.5, weight: '500' } }; };
+
+  const first = on[0], firstData = datasets[0].data.filter(function (v) { return v != null; });
+  const peak = firstData.length ? Math.max.apply(null, firstData) : null;
+  const peakIdx = peak == null ? -1 : datasets[0].data.indexOf(peak);
+  const fmtFirst = first.id === 'margin' ? fmtPct : fmtMoney;
+  $('cTrend').setAttribute('aria-label', 'Line chart of monthly ' + on.map(function (d) { return d.id === 'margin' ? 'profit margin' : d.label.toLowerCase(); }).join(', ') + '.' +
+    (peakIdx >= 0 ? ' Highest ' + first.label.split(' (')[0].toLowerCase() + ': ' + MONTHS_LONG[ms[peakIdx].mo] + ' at ' + fmtFirst(peak) + '.' : ' No data for these filters.'));
+
+  charts.trend = mount(charts.trend, $('cTrend'), {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    plugins: [crosshair, peakLabel],
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 8, right: 4 } },
+      scales: {
+        x: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: css('--ink-2') } },
+        y: {
+          display: leftOn, position: 'left', min: 0, max: stepL * 5, title: axisTitle('Revenue and profit'),
+          grid: { color: css('--grid'), lineWidth: 1 }, border: { display: false },
+          ticks: { color: css('--muted'), stepSize: stepL, callback: function (v) { return fmtMoneyC(v); } }
+        },
+        y2: {
+          display: rightOn, position: 'right', min: 0, max: stepR * 5, title: axisTitle('Profit margin'),
+          grid: { drawOnChartArea: !leftOn, color: css('--grid'), lineWidth: 1 }, border: { display: false },
+          ticks: { color: css('--muted'), stepSize: stepR, callback: function (v) { return Math.round(v * 100) + '%'; } }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        peakLabel: { fmt: first.id === 'margin' ? fmtPct : fmtMoneyC },
+        tooltip: Object.assign(tooltipBase(), {
+          callbacks: {
+            title: function (items) { const m = ms[items[0].dataIndex]; return MONTHS_LONG[m.mo] + ' ' + m.y; },
+            label: function (ctx) {
+              const v = ctx.parsed.y, isM = ctx.dataset.id === 'margin';
+              return v == null ? 'No sales  ' + ctx.dataset.label : (isM ? fmtPct(v) : fmtMoney(v)) + '  ' + ctx.dataset.label;
+            },
+            labelColor: function (ctx) { const c = ctx.dataset.borderColor; return { borderColor: c, backgroundColor: c, borderWidth: 0, borderRadius: 0 }; },
+            footer: function (items) { const m = ms[items[0].dataIndex]; return m.sum ? fmtNum(m.sum.units) + ' units · ' + m.sum.n + (m.sum.n === 1 ? ' transaction' : ' transactions') : ''; }
+          }
+        })
+      }
+    }
+  });
+}
+
+function barOptions(extra) {
+  return Object.assign({
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    layout: { padding: { right: 8 } },
+    scales: {
+      y: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: css('--ink-2'), font: { size: 12.5 } } }
+    },
+    onHover: setCursor
+  }, extra);
+}
+
+function renderProduct(rows) {
+  const g = groupSum(rows, 'product');
+  const names = Array.from(g.keys()).sort(function (a, b) { return g.get(b).rev - g.get(a).rev; });
+  const c1 = css('--s1'), c2 = css('--s2');
+  function colors(c) { return names.map(function (n) { return f.product === 'All' || f.product === n ? c : hexA(c, 0.28); }); }
+  const radius = { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 };
+  $('cProduct').setAttribute('aria-label', 'Bar chart of revenue and profit by product: ' + names.map(function (n) { return n + ' ' + fmtMoney(g.get(n).rev) + ' revenue, ' + fmtMoney(g.get(n).profit) + ' profit'; }).join('; ') + '.');
+  charts.product = mount(charts.product, $('cProduct'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [
+        { label: 'Revenue', data: names.map(function (n) { return g.get(n).rev; }), backgroundColor: colors(c1), borderWidth: 0, borderRadius: radius, maxBarThickness: 22, categoryPercentage: 0.72, barPercentage: 0.92 },
+        { label: 'Profit', data: names.map(function (n) { return g.get(n).profit; }), backgroundColor: colors(c2), borderWidth: 0, borderRadius: radius, maxBarThickness: 22, categoryPercentage: 0.72, barPercentage: 0.92 }
+      ]
+    },
+    plugins: [barLabels],
+    options: barOptions({
+      scales: {
+        y: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: css('--ink-2'), font: { size: 12.5 } } },
+        x: { beginAtZero: true, grace: '16%', grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--muted'), maxTicksLimit: 5, callback: function (v) { return fmtMoneyC(v); } } }
+      },
+      onClick: function (e, els) { if (els.length) toggle('product', names[els[0].index]); },
+      plugins: {
+        legend: { display: false },
+        barLabels: { fmt: fmtMoneyC },
+        tooltip: Object.assign(tooltipBase(), {
+          callbacks: {
+            label: function (ctx) { return fmtMoney(ctx.parsed.x) + '  ' + ctx.dataset.label; },
+            labelColor: function (ctx) { const c = ctx.datasetIndex ? css('--s2') : css('--s1'); return { borderColor: c, backgroundColor: c, borderWidth: 0 }; },
+            footer: function (items) { const s = g.get(items[0].label); return 'Margin ' + fmtPct(s.margin) + ' · ' + fmtNum(s.units) + ' units'; }
+          }
+        })
+      }
+    })
+  });
+}
+
+function renderRegion(rows) {
+  const g = groupSum(rows, 'region');
+  const names = Array.from(g.keys()).sort(function (a, b) { return (g.get(b).margin || 0) - (g.get(a).margin || 0); });
+  const c3 = css('--s3'), overall = sumRows(rows).margin;
+  const vals = names.map(function (n) { return g.get(n).margin; });
+  const mx = Math.max.apply(null, vals.concat([0.4]));
+  $('cRegion').setAttribute('aria-label', 'Bar chart of profit margin by region: ' + names.map(function (n) { return n + ' ' + fmtPct(g.get(n).margin); }).join('; ') + '.');
+  charts.region = mount(charts.region, $('cRegion'), {
+    type: 'bar',
+    data: { labels: names, datasets: [{ label: 'Profit margin', data: vals, backgroundColor: names.map(function (n) { return f.region === 'All' || f.region === n ? c3 : hexA(c3, 0.28); }), borderWidth: 0, borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 }, maxBarThickness: 24, categoryPercentage: 0.7, barPercentage: 0.9 }] },
+    plugins: [barLabels, refLine],
+    options: barOptions({
+      layout: { padding: { top: 20, right: 8 } },
+      scales: {
+        y: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: css('--ink-2'), font: { size: 12.5 } } },
+        x: { beginAtZero: true, max: Math.ceil(mx * 1.12 * 10) / 10, grid: { color: css('--grid') }, border: { display: false }, ticks: { color: css('--muted'), maxTicksLimit: 5, callback: function (v) { return Math.round(v * 100) + '%'; } } }
+      },
+      onClick: function (e, els) { if (els.length) toggle('region', names[els[0].index]); },
+      plugins: {
+        legend: { display: false },
+        barLabels: { fmt: fmtPct },
+        refLine: { value: overall, label: 'Overall ' + fmtPct(overall) },
+        tooltip: Object.assign(tooltipBase(), {
+          callbacks: {
+            label: function (ctx) { return fmtPct(ctx.parsed.x) + '  margin'; },
+            labelColor: function () { return { borderColor: c3, backgroundColor: c3, borderWidth: 0 }; },
+            footer: function (items) { const s = g.get(items[0].label); return fmtMoney(s.profit) + ' profit on ' + fmtMoney(s.rev) + ' revenue'; }
+          }
+        })
+      }
+    })
+  });
+}
+
+function showTip(html, x, y) {
+  const tip = $('tip'); tip.textContent = '';
+  html.forEach(function (p) { const d = document.createElement('div'); d.className = p[0]; d.textContent = p[1]; tip.appendChild(d); });
+  tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x + 14)) + 'px';
+  tip.style.top = Math.max(8, Math.min(window.innerHeight - h - 8, y + 14)) + 'px';
+}
+function hideTip() { $('tip').hidden = true; }
+
+function renderHeat(rows) {
+  const host = $('heat'); host.textContent = '';
+  const regions = DIMS.region, products = DIMS.product;
+  host.style.gridTemplateColumns = 'minmax(64px, auto) repeat(' + products.length + ', minmax(0, 1fr))';
+  const cell = {}; let mx = 0;
+  rows.forEach(function (r) {
+    const k = r.region + '|' + r.product;
+    cell[k] = cell[k] || []; cell[k].push(r);
+  });
+  Object.keys(cell).forEach(function (k) { cell[k] = sumRows(cell[k]); mx = Math.max(mx, cell[k].rev); });
+  const corner = document.createElement('div'); host.appendChild(corner);
+  products.forEach(function (p) { const h = document.createElement('div'); h.className = 'hh col'; h.textContent = p; host.appendChild(h); });
+  regions.forEach(function (rg) {
+    const h = document.createElement('div'); h.className = 'hh'; h.textContent = rg; host.appendChild(h);
+    products.forEach(function (p) {
+      const s = cell[rg + '|' + p], b = document.createElement('button');
+      b.type = 'button'; b.className = 'cell';
+      if (!s) {
+        b.classList.add('empty'); b.textContent = '—'; b.disabled = true; b.setAttribute('aria-label', rg + ', ' + p + ': no sales');
+      } else {
+        const rgb = rampAt(mx ? s.rev / mx : 0);
+        b.style.background = 'rgb(' + rgb.join(',') + ')';
+        b.style.color = lum(rgb) > 0.36 ? '#0b0b0b' : '#ffffff';
+        b.textContent = fmtMoneyC(s.rev);
+        b.setAttribute('aria-label', rg + ', ' + p + ': ' + fmtMoney(s.rev) + ' revenue, ' + fmtMoney(s.profit) + ' profit, margin ' + fmtPct(s.margin));
+        const lines = [['t', rg + ' · ' + p], ['l', fmtMoney(s.rev) + ' revenue'], ['t', fmtMoney(s.profit) + ' profit · margin ' + fmtPct(s.margin)]];
+        b.addEventListener('pointermove', function (e) { showTip(lines, e.clientX, e.clientY); });
+        b.addEventListener('pointerleave', hideTip);
+        b.addEventListener('focus', function () { const r = b.getBoundingClientRect(); showTip(lines, r.left, r.bottom - 14); });
+        b.addEventListener('blur', hideTip);
+        b.addEventListener('click', function () {
+          const same = f.region === rg && f.product === p;
+          f.region = same ? 'All' : rg; f.product = same ? 'All' : p; syncControls(); render();
+        });
+        const match = (f.region === 'All' || f.region === rg) && (f.product === 'All' || f.product === p);
+        if (!match) b.classList.add('dim');
+      }
+      host.appendChild(b);
+    });
+  });
+  const sc = $('heatScale'); sc.textContent = '';
+  const lo = document.createElement('span'), hi = document.createElement('span'), bar = document.createElement('span');
+  lo.textContent = '$0'; hi.textContent = fmtMoneyC(mx); bar.className = 'bar';
+  const stops = [0, 0.25, 0.5, 0.75, 1].map(function (t) { return 'rgb(' + rampAt(t).join(',') + ')'; });
+  bar.style.background = 'linear-gradient(to right,' + stops.join(',') + ')';
+  sc.appendChild(lo); sc.appendChild(bar); sc.appendChild(hi);
+}
+
+function renderChannel(rows) {
+  const g = groupSum(rows, 'channel'), tot = sumRows(rows);
+  const palette = ['--s7', '--s5', '--s3', '--s2'];
+  const colorOf = function (n) { return css(palette[DIMS.channel.indexOf(n) % palette.length]); };
+  const names = DIMS.channel.filter(function (n) { return g.has(n); });
+  $('dBig').textContent = tot.rev ? fmtMoneyC(tot.rev) : '—';
+  $('cChannel').setAttribute('aria-label', 'Doughnut chart of revenue share by channel: ' + names.map(function (n) { return n + ' ' + fmtPct(g.get(n).rev / tot.rev); }).join('; ') + '.');
+  charts.channel = mount(charts.channel, $('cChannel'), {
+    type: 'doughnut',
+    data: { labels: names, datasets: [{ data: names.map(function (n) { return g.get(n).rev; }), backgroundColor: names.map(function (n) { return f.channel === 'All' || f.channel === n ? colorOf(n) : hexA(colorOf(n), 0.28); }), borderColor: css('--surface'), borderWidth: 2, hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%', onHover: setCursor,
+      onClick: function (e, els) { if (els.length) toggle('channel', names[els[0].index]); },
+      plugins: {
+        legend: { display: false },
+        tooltip: Object.assign(tooltipBase(), {
+          callbacks: {
+            title: function () { return ''; },
+            label: function (ctx) { const s = g.get(ctx.label); return fmtMoney(ctx.parsed) + '  ' + ctx.label; },
+            labelColor: function (ctx) { const c = colorOf(ctx.label); return { borderColor: c, backgroundColor: c, borderWidth: 0 }; },
+            footer: function (items) { const s = g.get(items[0].label); return fmtPct(s.rev / tot.rev) + ' of revenue · margin ' + fmtPct(s.margin); }
+          }
+        })
+      }
+    }
+  });
+  const list = $('chlist'); list.textContent = '';
+  const head = document.createElement('div'); head.className = 'chhead';
+  ['', 'Channel', 'Share', 'Margin'].forEach(function (t) { const s = document.createElement('span'); s.textContent = t; head.appendChild(s); });
+  list.appendChild(head);
+  names.forEach(function (n) {
+    const s = g.get(n), b = document.createElement('button');
+    b.type = 'button'; b.className = 'chrow' + (f.channel !== 'All' && f.channel !== n ? ' dim' : '');
+    const dot = document.createElement('i'); dot.className = 'dot'; dot.style.setProperty('--c', colorOf(n));
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = n;
+    const sh = document.createElement('span'); sh.className = 'num'; sh.textContent = fmtPct(s.rev / tot.rev);
+    const mg = document.createElement('span'); mg.className = 'num'; mg.textContent = fmtPct(s.margin);
+    [dot, nm, sh, mg].forEach(function (x) { b.appendChild(x); });
+    b.setAttribute('aria-label', n + ': ' + fmtPct(s.rev / tot.rev) + ' of revenue, margin ' + fmtPct(s.margin));
+    b.addEventListener('click', function () { toggle('channel', n); });
+    list.appendChild(b);
+  });
+}
+
+function renderTable(rows) {
+  $('tableSum').textContent = 'Table view · ' + rows.length + ' transactions';
+  const tb = $('tbody'); tb.textContent = '';
+  rows.forEach(function (r) {
+    const tr = document.createElement('tr');
+    const cells = [
+      [r.d + ' ' + MONTHS[r.mo - 1] + ' ' + r.y, ''], [r.region, ''], [r.product, ''], [r.channel, ''],
+      [fmtNum(r.units), 'n'], [r.price.toFixed(2), 'n'], [fmtMoney(r.revenue), 'n'], [fmtMoney(r.cost), 'n'], [fmtMoney(r.profit), 'n']
+    ];
+    cells.forEach(function (c) { const td = document.createElement('td'); td.textContent = c[0]; if (c[1]) td.className = c[1]; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+}
+
+// ---------- events ----------
+$('selRegion').addEventListener('change', function (e) { f.region = e.target.value; syncControls(); render(); });
+$('selProduct').addEventListener('change', function (e) { f.product = e.target.value; syncControls(); render(); });
+$('selChannel').addEventListener('change', function (e) { f.channel = e.target.value; syncControls(); render(); });
+$('reset').addEventListener('click', function () { f.range = 'all'; f.region = 'All'; f.product = 'All'; f.channel = 'All'; syncControls(); render(); });
+$('csvFile').addEventListener('change', function (e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = function () {
+    try { loadData(parseCSV(rd.result), file.name); }
+    catch (err) { const st = $('status'); st.className = 'status error'; st.textContent = 'Could not read ' + file.name + '. ' + err.message; }
+  };
+  rd.onerror = function () { const st = $('status'); st.className = 'status error'; st.textContent = 'Could not read ' + file.name + '.'; };
+  rd.readAsText(file);
+  e.target.value = '';
+});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onThemeChange);
+new MutationObserver(onThemeChange).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+loadData(parseCSV(SAMPLE), SAMPLE_NAME);
+})();
+</script>
+
+</body></html>
